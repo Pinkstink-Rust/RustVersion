@@ -3,63 +3,47 @@ const vdf = require('vdf');
 const express = require('express');
 const app = express();
 const port = 3000;
-const regex = new RegExp(/AppID\s+:\s+\d+,\s+change\s+number\s+:\s+\d+\/\d+,\s+last\s+change\s+:\s+\w+\s+\w+\s+\d+\s+\d+:\d+:\d+\s+\d+\s+([\W\w]+)\s+\u001b\[1m\nSteam>\u001b\[0m/);
+const regex = new RegExp(/AppID\s+:\s+\d+,\s+change\s+number\s+:\s+\d+\/\d+,\s+last\s+change\s+:\s+\w+\s+\w+\s+\d+\s+\d+:\d+:\d+\s+\d+\s+([\W\w]+).*/);
 
 let steamCmdProcess;
-function initSteamProcess() {
-    console.log("Initializing SteamCMD");
+function updateSteamInfo() {
     if (steamCmdProcess && !steamCmdProcess.killed) {
         steamCmdProcess.kill();
     }
-    steamCmdProcess = exec("/home/steam/steamcmd/steamcmd.sh +login anonymous");
+
+    steamCmdProcess = exec("/home/steam/steamcmd/steamcmd.sh +login anonymous +app_info_print 258550 +exit");
     steamCmdProcess.stdin.setEncoding('utf-8');
-    steamCmdProcess.stdout.on('data', filter);
+    steamCmdProcess.stdout.on('data', chunk => outputBuffer.push(chunk.toString()));
     steamCmdProcess.on('exit', (code, signal) => {
-        console.log("Steam Exited");
-        setTimeout(initSteamProcess, 15000);
+        console.log(`Steam Exited: ${code} ${signal}`);
+        parseOutput();
+        setTimeout(updateSteamInfo, 15000);
     });
-    poll();
 }
-initSteamProcess();
 
 let outputBuffer = [];
 let parseString = "";
 let lastUpdateInfo = {};
 
-function filter(chunk) {
-    outputBuffer.push(chunk.toString());
-    if (outputBuffer.length > 20) {
-        outputBuffer.splice(0, outputBuffer.length - 200);
-    }
+function parseOutput() {
+    parseString = outputBuffer.join(' ');
+    outputBuffer.length = 0;
 
-    if (chunk.includes("\u001b[1m\nSteam>\u001b[0m")) {
-        console.log("Steam Prompt Found");
-        parseString = outputBuffer.join(' ');
-        outputBuffer.length = 0;
-
-        let matches = parseString.match(regex);
-        if (matches && matches.length > 1) {
-            console.log("Matched Regex");
-            try {
-                lastUpdateInfo = vdf.parse(matches[1]);
-                console.log("Updated Info");
-            } catch (e) {
-                console.error(e);
-            }
+    let matches = parseString.match(regex);
+    if (matches && matches.length > 1) {
+        console.log("Matched Regex");
+        try {
+            lastUpdateInfo = vdf.parse(matches[1]);
+            console.log("Updated Info");
+        } catch (e) {
+            console.error(e);
         }
     }
 }
 
-function poll() {
-    if (steamCmdProcess && !steamCmdProcess.killed && steamCmdProcess.stdin && steamCmdProcess.stdin.writable) {
-        console.log("Requesting App Info");
-        steamCmdProcess.stdin.write("app_info_print 258550\r\n");
-    }
-    setTimeout(poll, 60000);
-}
-
 app.listen(port, function () {
     console.log("HTTP Server is running on " + port + " port");
+    updateSteamInfo();
 });
 
 app.use(function (err, req, res, next) {
@@ -68,14 +52,23 @@ app.use(function (err, req, res, next) {
 })
 
 app.get('/', function (req, res) {
-    res.json(lastUpdateInfo);
-});
-app.get('/debug', function (req, res) {
-    res.json(outputBuffer);
+    try {
+        res.json(lastUpdateInfo["258550"]);
+    } catch {
+        res.status(500);
+    }
 });
 app.get('/public', function (req, res) {
-    res.json(lastUpdateInfo["258550"]["depots"]["branches"]["public"]);
+    try {
+        res.json(lastUpdateInfo["258550"]["depots"]["branches"]["public"]);
+    } catch {
+        res.status(500);
+    }
 })
 app.get('/staging', function (req, res) {
-    res.json(lastUpdateInfo["258550"]["depots"]["branches"]["staging"]);
+    try {
+        res.json(lastUpdateInfo["258550"]["depots"]["branches"]["staging"]);
+    } catch {
+        res.status(500);
+    }
 });
