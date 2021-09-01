@@ -42,7 +42,7 @@ function parseOutput() {
 
 function LogMessage(message) {
     const date = new Date();
-    LogMessage('[' + date.toISOString() + '] ' + message);
+    console.log('[' + date.toISOString() + '] ' + message);
 }
 
 app.listen(port, function () {
