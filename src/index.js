@@ -17,6 +17,7 @@ function updateSteamInfo() {
     steamCmdProcess.on('exit', (code, signal) => {
         LogMessage(`Steam Exited: ${code} ${signal}`);
         parseOutput();
+        setTimeout(updateSteamInfo, 15000);
     });
 }
 
@@ -47,7 +48,7 @@ function LogMessage(message) {
 
 app.listen(port, function () {
     LogMessage("HTTP Server is running on " + port + " port");
-    setInterval(updateSteamInfo, 15000);
+    updateSteamInfo();
 });
 
 app.use(function (err, req, res, next) {
@@ -58,13 +59,15 @@ app.use(function (err, req, res, next) {
 app.get('/', function (req, res) {
     res.json(lastUpdateInfo);
 });
+
 app.get('/public', function (req, res) {
     try {
         res.json(lastUpdateInfo["258550"]["depots"]["branches"]["public"]);
     } catch {
         res.status(500);
     }
-})
+});
+
 app.get('/staging', function (req, res) {
     try {
         res.json(lastUpdateInfo["258550"]["depots"]["branches"]["staging"]);
