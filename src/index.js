@@ -56,11 +56,7 @@ app.use(function (err, req, res, next) {
 })
 
 app.get('/', function (req, res) {
-    try {
-        res.json(lastUpdateInfo["258550"]);
-    } catch {
-        res.status(500);
-    }
+    res.json(lastUpdateInfo);
 });
 app.get('/public', function (req, res) {
     try {
