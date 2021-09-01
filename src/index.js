@@ -15,9 +15,8 @@ function updateSteamInfo() {
     steamCmdProcess.stdin.setEncoding('utf-8');
     steamCmdProcess.stdout.on('data', chunk => outputBuffer.push(chunk.toString()));
     steamCmdProcess.on('exit', (code, signal) => {
-        console.log(`Steam Exited: ${code} ${signal}`);
+        LogMessage(`Steam Exited: ${code} ${signal}`);
         parseOutput();
-        setTimeout(updateSteamInfo, 15000);
     });
 }
 
@@ -31,19 +30,24 @@ function parseOutput() {
 
     let matches = parseString.match(regex);
     if (matches && matches.length > 1) {
-        console.log("Matched Regex");
+        LogMessage("Matched Regex");
         try {
             lastUpdateInfo = vdf.parse(matches[1]);
-            console.log("Updated Info");
+            LogMessage("Updated Info");
         } catch (e) {
             console.error(e);
         }
     }
 }
 
+function LogMessage(message) {
+    const date = new Date();
+    LogMessage('[' + date.toISOString() + '] ' + message);
+}
+
 app.listen(port, function () {
-    console.log("HTTP Server is running on " + port + " port");
-    updateSteamInfo();
+    LogMessage("HTTP Server is running on " + port + " port");
+    setInterval(updateSteamInfo, 15000);
 });
 
 app.use(function (err, req, res, next) {
